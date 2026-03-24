@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from data import fake_products
+from data import fake_products, categories
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -28,15 +28,13 @@ async def read_products(request: Request):
         name="products.html",
         context={
             "title": "Каталог товаров",
-            "products": fake_products  # Передаем список товаров в шаблон
+            "products": fake_products
         }
     )
 
-@app.get("/product/{product_id}", responses=HTMLResponse)
+@app.get("/product/{product_id}", response_class=HTMLResponse)
 async def read_product(request: Request, product_id: int):
     product = next((p for p in fake_products if p["id"] == product_id), None)
-
-    # Если товар не найден — выбрасываем 404 ошибку
     if product is None:
         raise HTTPException(status_code=404, detail="Товар не найден")
 
@@ -44,4 +42,28 @@ async def read_product(request: Request, product_id: int):
         request=request,
         name="product_detail.html",
         context={"product": product}
+    )
+
+@app.get("/category/{category_id}", response_class=HTMLResponse)
+async def read_category(request: Request, category_id: int):
+    if category_id not in categories:
+        return HTTPException(status_code=404, detail="Категория не найдена")
+    category_products = [p for p in fake_products if p.get("category_id") == category_id]
+    return templates.TemplateResponse(
+        request=request,
+        name="products.html",
+        context={
+            "title": categories[category_id],
+            "products": category_products,
+        }
+    )
+
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc):
+    return templates.TemplateResponse(
+        request=request,
+        name="404.html",
+        context={"title": "Страница не найдена"},
+        status_code=404
     )

@@ -1,14 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Каталог товаров</h1>
-    <div class="products-grid">
-        {% for product in products %}
-            <div class="product-card">
-                <h2>{{ product.name }}</h2>
-                <p>Цена: {{ product.price }} ₽</p>
-                <!-- Добавь кнопку "Подробнее" -->
-            </div>
-        {% endfor %}
-    </div>
+    <h1>{{ title }}</h1>
+
+    {% if products %}
+        <div class="products-grid">
+            {% for product in products %}
+                <div class="product-card">
+                    <h2>{{ product.name }}</h2>
+                    <p>Цена: {{ product.price }} ₽</p>
+                    <a href="/product/{{ product.id }}">Подробнее</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>В этой категории пока нет товаров.</p>
+    {% endif %}
 {% endblock %}
