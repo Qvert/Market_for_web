@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
-from data import fake_products, categories
+from app.data import fake_products, categories
+from app.config import templates
 
 router = APIRouter()
-
-templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -57,11 +55,3 @@ async def read_category(request: Request, category_id: int):
     )
 
 
-@router.exception_handler(404)
-async def custom_404_handler(request: Request, exc):
-    return templates.TemplateResponse(
-        request=request,
-        name="404.html",
-        context={"title": "Страница не найдена"},
-        status_code=404
-    )
