@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Ваша корзина</h1>
+
+    {% if is_empty %}
+        <p>Ваша корзина пуста 😢</p>
+    {% else %}
+        <table border="1" cellpadding="10" cellspacing="0" style="width: 100%; text-align: left;">
+            <tr>
+                <th>Название</th>
+                <th>Цена</th>
+                <th>Кол-во</th>
+                <th>Сумма</th>
+                <th>Действие</th>
+            </tr>
+            
+            <!-- Перебираем словарь корзины -->
+            {% for p_id, item in cart_items.items() %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.price }} руб.</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.price * item.quantity }} руб.</td>
+                <td>
+                    <!-- Форма для POST-запроса удаления -->
+                    <form action="/cart/remove/{{ p_id }}" method="POST">
+                        <button type="submit" style="color: red;">Удалить</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <h2>Итого: {{ total_sum }} руб.</h2>
+    {% endif %}
+{% endblock %}

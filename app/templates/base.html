@@ -6,6 +6,12 @@
     <title>{{ title }} - Мой Магазин</title>
     <!-- Подключаем CSS из папки static -->
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; }
+        header { background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; }
+        header a { color: white; text-decoration: none; font-weight: bold; }
+        .cart-icon { background: red; padding: 2px 8px; border-radius: 50%; font-size: 14px; }
+    </style>
 </head>
 <body>
 
@@ -24,10 +30,12 @@
                 <li><a href="/products">Каталог</a></li>
             </ul>
         </nav>
+        <a href="/">Главная</a>
+        <!-- Счетчик корзины. Переменная cart_count передается во все шаблоны -->
+        <a href="/cart">Корзина <span class="cart-icon">{{ cart_count }}</span></a>
     </header>
 
     <main>
-        <!-- Сюда будет подставляться контент других страниц -->
         {% block content %}{% endblock %}
     </main>
 
