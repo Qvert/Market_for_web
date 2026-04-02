@@ -1,14 +1,12 @@
-fake_products = [
-    {"id": 1, "name": "Смартфон Samsung", "price": 25000, "image": "phone.jpg", "category_id": 1},
-    {"id": 2, "name": "Ноутбук ASUS", "price": 80000, "image": "laptop.jpg", "category_id": 1},
-    {"id": 3, "name": "Наушники Sony", "price": 3000, "image": "headphones.jpg", "category_id": 2},
-    {"id": 4, "name": "Футболка Nike", "price": 2000, "image": "tshirt.jpg", "category_id": 3},
+CATEGORIES = [
+    {"id": 1, "name": "Ноутбуки"},
+    {"id": 2, "name": "Периферия"}
 ]
 
-categories = {
-    1: "Электроника",
-    2: "Аксессуары",
-    3: "Одежда",
-}
+PRODUCTS = [
+    {"id": 1, "categoryId": 1, "name": "Ноутбук ASUS", "price": 75000},
+    {"id": 2, "categoryId": 2, "name": "Беспроводная мышь", "price": 1500},
+    {"id": 3, "categoryId": 2, "name": "Клавиатура", "price": 3000},
+]
 
-fake_users = []
+USERS = {}

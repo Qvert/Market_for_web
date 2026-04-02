@@ -1,62 +1,70 @@
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
-from starlette.responses import RedirectResponse
-from starlette.status import HTTP_303_SEE_OTHER
+from fastapi import APIRouter, Request, Depends, status, HTTPException
+from pydantic import BaseModel
 
-from app.config import templates
-from app.data import fake_products
+from app.data import PRODUCTS
+from app.security import get_current_user
 
-router = APIRouter(prefix="/cart", tags=["Cart"])
+router = APIRouter(prefix="/api/cart", tags=["Cart"])
 
-def get_base_context(request: Request, **kwargs):
-    cart = request.session.get("cart", {})
-    # Считаем общее количество товаров в корзине
-    cart_count = sum(item["quantity"] for item in cart.values())
+class CartItemAdd(BaseModel):
+    productId: int
+    quantity: int = 1
 
-    context = {"request": request, "cart_count": cart_count}
-    context.update(kwargs)
-    return context
+class CartItemUpdate(BaseModel):
+    quantity: int
 
-@router.post("/add/{product_id}")
-async def add_to_cart(request: Request, product_id: int):
-    product = fake_products[product_id - 1]
+@router.get("")
+async def get_cart(request: Request, current_user: dict = Depends(get_current_user)):
+    return request.session.get("cart", {})
+
+
+@router.post("/items", status_code=status.HTTP_201_CREATED)
+async def add_to_cart(item: CartItemAdd, request: Request, current_user: dict = Depends(get_current_user)):
+    product = next((i for i in PRODUCTS if i["id"] == item.productId), None)
     if not product:
-        return RedirectResponse(url="/", status_code=HTTP_303_SEE_OTHER)
-    cart = request.session.get("cart", {})
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Товар не найден")
 
-    p_id_str = str(product_id)
-    if p_id_str in cart:
-        cart[p_id_str]["quantity"] += 1
+    cart = request.session.get("cart", {})
+    i_id_str = str(item.productId)
+
+    if i_id_str in cart:
+        cart[i_id_str]["quantity"] += item.quantity
     else:
-        cart[p_id_str] = {
+        cart[i_id_str] = {
+            "productId": item.productId,
             "name": product["name"],
             "price": product["price"],
-            "quantity": 1
+            "quantity": item.quantity
         }
-
     request.session["cart"] = cart
-    return RedirectResponse(url="/products", status_code=HTTP_303_SEE_OTHER)
+    return cart[i_id_str]
 
-@router.get("/", response_class=HTMLResponse)
-async def view_cart(request: Request):
+@router.put("/items/{product_id}")
+async def update_cart(product_id: int, item: CartItemUpdate, request: Request, current_user: dict = Depends(get_current_user)):
+    if item.quantity <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Кол-во < 0")
     cart = request.session.get("cart", {})
+    i_id_str = str(product_id)
 
-    total_sum = sum(item["price"] * item["quantity"] for item in cart.values())
-    is_empty = len(cart) == 0
+    if i_id_str not in cart:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Товар не в корзине")
 
-    return templates.TemplateResponse(
-        "cart.html",
-        get_base_context(
-            request, cart_items=cart, total_sum=total_sum, is_empty=is_empty
-        )
-    )
+    cart[i_id_str]["quantity"] = item.quantity
+    request.session["cart"] = cart
+    return cart[i_id_str]
 
-@router.post("/remove/{product_id}")
-async def remove_from_cart(request: Request, product_id: int):
+@router.delete("/items/{product_id}")
+async def delete_from_cart(product_id: int, request: Request, current_user: dict = Depends(get_current_user)):
     cart = request.session.get("cart", {})
-    p_id_str = str(product_id)
+    i_id_str = str(product_id)
 
-    if p_id_str in cart:
-        del cart[p_id_str]
+    if i_id_str in cart:
+        del cart[i_id_str]
         request.session["cart"] = cart
-    return RedirectResponse(url="/cart", status_code=HTTP_303_SEE_OTHER)
+
+    return {"message": "Товар удалён"}
+
+@router.delete("/clear")
+async def clear_cart(request: Request, current_user: dict = Depends(get_current_user)):
+    request.session["cart"] = {}
+    return {"message": "Корзина очищена"}

@@ -7,7 +7,7 @@ from app.config import templates
 from app.data import fake_users
 from app.security import get_hash_password, verify_password
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 @router.get("/register", response_class=HTMLResponse)
 async def get_register_page(request: Request):
