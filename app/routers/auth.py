@@ -1,85 +1,42 @@
-from fastapi import APIRouter, Request, status, Form
-from fastapi.responses import HTMLResponse
-from fastapi.responses import RedirectResponse
-from starlette.status import HTTP_303_SEE_OTHER
+from fastapi import APIRouter, Request, status, HTTPException, Depends
+from pydantic import BaseModel, EmailStr
 
-from app.config import templates
-from app.data import fake_users
-from app.security import get_hash_password, verify_password
+from app.data import USERS
+from app.security import get_hash_password, verify_password, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-@router.get("/register", response_class=HTMLResponse)
-async def get_register_page(request: Request):
-    return templates.TemplateResponse(request=request, name="register.html")
 
-@router.post("/register")
-async def register_user(request: Request,
-                        email: str = Form(),
-                        name: str = Form(),
-                        password: str = Form()):
-    """
-    :param request: Обязательный параметр
-    :param email: Email пользователя
-    :param name: Имя
-    :param password: Пароль для хеширования
-    :return: Юзер добавлен
-    """
-    for user in fake_users:
-        if user["email"] == email:
-            return templates.TemplateResponse(
-                request=request,
-                name="register.html",
-                context={"error": "Такой email уже существует"}
-            )
-    hashed_password = get_hash_password(password[:72])
+class UserRegister(BaseModel):
+    name: str
+    password: str
+    email: EmailStr
 
-    new_user = {
-        "email": email,
-        "name": name,
-        "password_hash": hashed_password,
-    }
-    fake_users.append(new_user)
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
 
-    return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-
-@router.get("/login", response_class=HTMLResponse)
-async def get_login_page(request: Request):
-    return templates.TemplateResponse(request=request, name="login.html")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register_user(user: UserRegister):
+    if user.email in USERS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email уже занят")
+    USERS[user.email] = {"name": user.name, "email": user.email, "password": user.password}
+    return {"message": "Пользователь успешно зарегистрирован"}
 
 @router.post("/login")
-async def login_user(request: Request,
-                     email: str = Form(),
-                     password: str = Form()
-                     ):
-    """
-    :param request: Обязательный параметр
-    :param email: Email пользователя
-    :param password: Пароль пользователя
-    :return: Добавляем пользователя в сессию
-    """
-    user_found = None
-    for user in fake_users:
-        if user["email"] == email:
-            user_found = user
-            break
+async def login_user(user: UserLogin, request: Request):
+    db_user = USERS.get(user.email)
+    if not db_user or db_user["password"] != user.password:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный email или пароль")
 
-    if not user_found or not verify_password(password, user_found["password_hash"]):
-        return templates.TemplateResponse(
-            request=request,
-            name="login.html",
-            context={"error": "Неверный email или пароль"}
-        )
+    request.session["user"] = db_user["email"]
+    return {"message": "Успешный вход"}
 
-    request.session["user"] = {
-        "email": user_found["email"],
-        "name": user_found["name"]
-    }
-
-    return RedirectResponse(url="/", status_code=HTTP_303_SEE_OTHER)
-
-
-@router.get("/logout", response_class=HTMLResponse)
+@router.post("/logout")
 async def logout(request: Request):
-    request.session.clear()  # Очищаем сессию
-    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    request.session.pop("user", None)
+    return {"message": "УСпешный выход"}
+
+@router.get("/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    return {"name": current_user["name"], "email": current_user["email"]}
