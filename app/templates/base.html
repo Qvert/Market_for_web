@@ -4,42 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - Мой Магазин</title>
-    <!-- Подключаем CSS из папки static -->
+    <!-- CSS подключаем первым -->
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-    <style>
-        body { font-family: Arial, sans-serif; }
-        header { background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; }
-        header a { color: white; text-decoration: none; font-weight: bold; }
-        .cart-icon { background: red; padding: 2px 8px; border-radius: 50%; font-size: 14px; }
-    </style>
+    <!-- JS подключаем с defer, чтобы он загрузился после отрисовки HTML -->
+    <script src="{{ url_for('static', path='/js/main.js') }}" defer></script>
 </head>
 <body>
 
-    <header>
-        {% if request.session.get("user") %}
-    <span>Привет, {{ request.session.user.name }}!</span>
-    <a href="/auth/logout">Выйти</a>
-        {% else %}
-            <a href="/auth/login">Войти</a>
-            <a href="/auth/register">Регистрация</a>
-        {% endif %}
+    <header style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
         <nav>
-            <a href="/" class="logo">MyStore</a>
-            <ul>
-                <li><a href="/">Главная</a></li>
-                <li><a href="/products">Каталог</a></li>
-            </ul>
+            <a href="/" style="color: white; font-weight: bold; margin-right: 20px;">MyStore</a>
+            <a href="/products" style="color: white; margin-right: 15px;">Каталог</a>
         </nav>
-        <a href="/">Главная</a>
-        <!-- Счетчик корзины. Переменная cart_count передается во все шаблоны -->
-        <a href="/cart">Корзина <span class="cart-icon">{{ cart_count }}</span></a>
+
+        <div>
+            {% if request.session.get("user") %}
+                <!-- Если в сессии только email, выводим его -->
+                <span>Привет, {{ request.session.get("user") }}!</span>
+                <a href="/auth/logout" style="color: #ffaaaa; margin-left: 10px;">Выйти</a>
+            {% else %}
+                <a href="/auth/login" style="color: white; margin-right: 10px;">Войти</a>
+                <a href="/auth/register" style="color: white;">Регистрация</a>
+            {% endif %}
+
+            <a href="/cart" style="color: white; margin-left: 20px; text-decoration: none;">
+                Корзина 🛒 <span id="cart-count" class="cart-icon" style="background: red; padding: 2px 8px; border-radius: 50%;">{{ cart_count or 0 }}</span>
+            </a>
+        </div>
     </header>
 
-    <main>
+    <main style="padding: 20px;">
         {% block content %}{% endblock %}
     </main>
 
-    <footer>
+    <footer style="text-align: center; margin-top: 50px; padding: 20px; border-top: 1px solid #eee;">
         <p>&copy; 2026 Мой Интернет-Магазин</p>
     </footer>
 
