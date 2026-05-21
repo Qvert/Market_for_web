@@ -1,6 +1,6 @@
 // Ждем загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
-    updateCartCounter(); // Обновляем счетчик при загрузке страницы
+    updateCartCounter();
     setupEventListeners();
 });
 
@@ -14,19 +14,91 @@ function setupEventListeners() {
         });
     });
 
-    // 2. Проверка email при регистрации (3.4)
-    const emailInput = document.getElementById('register-email');
+    // 2. Проверка email при регистрации (3.4) - ИСПРАВЛЕН ID на 'reg-email'
+    const emailInput = document.getElementById('reg-email');
     if (emailInput) {
         emailInput.addEventListener('blur', async () => {
             const email = emailInput.value;
             if (email) await checkEmailUniqueness(email);
         });
     }
+
+    // 3. Обработка формы регистрации - ТЕПЕРЬ ВНУТРИ setupEventListeners
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log("Попытка регистрации...");
+
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const errorElement = document.getElementById('register-error');
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('Регистрация успешна!');
+                    // Проверьте путь в views.py. Если страница логина по адресу /login, то:
+                    window.location.href = '/auth/login';
+                } else {
+                    if (errorElement) {
+                        errorElement.textContent = result.detail || 'Ошибка регистрации';
+                        errorElement.style.display = 'block';
+                    } else {
+                        alert(result.detail || 'Ошибка регистрации');
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка запроса:', error);
+                alert('Не удалось связаться с сервером');
+            }
+        });
+    }
+    // Обработка формы входа
+const loginForm = document.getElementById('login-form');
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Стоп перезагрузка
+
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const errorElement = document.getElementById('login-error');
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                // Если вход успешен, перенаправляем на главную
+                window.location.href = '/';
+            } else {
+                // Выводим ошибку (например, "Неверный пароль")
+                errorElement.textContent = result.detail || 'Ошибка входа';
+                errorElement.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Не удалось связаться с сервером');
+        }
+    });
+}
 }
 
-// --- Функции для работы с Корзиной ---
+// --- Функции-помощники ---
 
-// Добавление товара
 async function addToCart(productId) {
     try {
         const response = await fetch('/api/cart/items', {
@@ -34,98 +106,29 @@ async function addToCart(productId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ product_id: productId, quantity: 1 })
         });
-
         if (response.ok) {
-            const data = await response.json();
-            alert('Товар добавлен в корзину!');
+            alert('Товар добавлен!');
             updateCartCounter();
-        } else {
-            const error = await response.json();
-            alert(`Ошибка: ${error.detail || 'Не удалось добавить товар'}`);
         }
-    } catch (err) {
-        console.error('Ошибка сети:', err);
-    }
+    } catch (err) { console.error(err); }
 }
 
-// Изменение количества (3.2)
-async function updateQuantity(productId, newQuantity) {
-    if (newQuantity < 1) return;
-
-    try {
-        const response = await fetch(`/api/cart/items/${productId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantity: newQuantity })
-        });
-
-        if (response.ok) {
-            // Перезагружаем часть страницы или просто обновляем итоговую сумму
-            location.reload(); // Для простоты в SSR, либо динамически:
-            // updateTotals();
-        }
-    } catch (err) {
-        console.error('Ошибка обновления:', err);
-    }
-}
-
-// Удаление товара (3.2)
-async function removeItem(productId) {
-    if (!confirm('Удалить товар из корзины?')) return;
-
-    try {
-        const response = await fetch(`/api/cart/items/${productId}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            location.reload();
-        }
-    } catch (err) {
-        console.error('Ошибка удаления:', err);
-    }
-}
-
-// Обновление счетчика в шапке
 async function updateCartCounter() {
     const counter = document.getElementById('cart-count');
     if (!counter) return;
-
     try {
         const response = await fetch('/api/cart/count');
         const data = await response.json();
         counter.textContent = data.count;
-    } catch (err) {
-        console.log('Корзина пуста или не авторизован');
-    }
+    } catch (err) { console.log('Корзина пуста'); }
 }
 
-// --- Быстрый просмотр (3.3) ---
-async function quickView(productId) {
-    try {
-        const response = await fetch(`/api/products/${productId}`);
-        const product = await response.json();
-
-        // Предполагается, что у вас есть модальное окно с ID 'quickViewModal'
-        const modal = document.getElementById('quickViewModal');
-        modal.querySelector('.modal-title').textContent = product.name;
-        modal.querySelector('.modal-body img').src = product.image_url;
-        modal.querySelector('.modal-description').textContent = product.description;
-
-        // Показать модалку (зависит от вашего CSS/фреймворка)
-        modal.style.display = 'block';
-    } catch (err) {
-        console.error('Ошибка загрузки данных товара:', err);
-    }
-}
-
-// --- Проверка Email (3.4) ---
 async function checkEmailUniqueness(email) {
     const feedback = document.getElementById('email-feedback');
+    if (!feedback) return;
     try {
         const response = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
         const data = await response.json();
-
         if (data.exists) {
             feedback.textContent = 'Этот email уже занят';
             feedback.style.color = 'red';
@@ -133,7 +136,48 @@ async function checkEmailUniqueness(email) {
             feedback.textContent = 'Email свободен';
             feedback.style.color = 'green';
         }
+    } catch (err) { console.error('Ошибка проверки email'); }
+}
+async function updateQuantity(productId, newQuantity) {
+    // Если пытаемся сделать меньше 1, ничего не делаем
+    if (newQuantity < 1) return;
+
+    try {
+        const response = await fetch(`/api/cart/items/${productId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ quantity: newQuantity })
+        });
+
+        if (response.ok) {
+            // Самый простой способ обновить итоговую сумму и список в SSR — перезагрузить страницу
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Ошибка при обновлении: ' + (error.detail || 'Неизвестная ошибка'));
+        }
     } catch (err) {
-        console.error('Ошибка проверки email');
+        console.error('Ошибка запроса:', err);
+    }
+}
+async function removeItem(productId) {
+    if (!confirm('Вы уверены, что хотите удалить этот товар из корзины?')) return;
+
+    try {
+        const response = await fetch(`/api/cart/items/${productId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Перезагружаем страницу, чтобы увидеть обновленную корзину
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Ошибка при удалении: ' + (error.detail || 'Неизвестная ошибка'));
+        }
+    } catch (err) {
+        console.error('Ошибка удаления:', err);
     }
 }

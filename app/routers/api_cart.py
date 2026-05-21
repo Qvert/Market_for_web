@@ -7,7 +7,7 @@ from app.security import get_current_user
 router = APIRouter(prefix="/api/cart", tags=["Cart"])
 
 class CartItemAdd(BaseModel):
-    productId: int
+    product_id: int
     quantity: int = 1
 
 class CartItemUpdate(BaseModel):
@@ -20,18 +20,18 @@ async def get_cart(request: Request, current_user: dict = Depends(get_current_us
 
 @router.post("/items", status_code=status.HTTP_201_CREATED)
 async def add_to_cart(item: CartItemAdd, request: Request, current_user: dict = Depends(get_current_user)):
-    product = next((i for i in PRODUCTS if i["id"] == item.productId), None)
+    product = next((i for i in PRODUCTS if i["id"] == item.product_id), None)
     if not product:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Товар не найден")
 
     cart = request.session.get("cart", {})
-    i_id_str = str(item.productId)
+    i_id_str = str(item.product_id)
 
     if i_id_str in cart:
         cart[i_id_str]["quantity"] += item.quantity
     else:
         cart[i_id_str] = {
-            "productId": item.productId,
+            "productId": item.product_id,
             "name": product["name"],
             "price": product["price"],
             "quantity": item.quantity
@@ -63,6 +63,11 @@ async def delete_from_cart(product_id: int, request: Request, current_user: dict
         request.session["cart"] = cart
 
     return {"message": "Товар удалён"}
+
+@router.get("/count")
+async def get_cart_count(request: Request):
+    cart = request.session.get("cart", [])
+    return {"count": len(cart)}
 
 @router.delete("/clear")
 async def clear_cart(request: Request, current_user: dict = Depends(get_current_user)):

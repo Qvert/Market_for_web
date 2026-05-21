@@ -13,11 +13,38 @@ async def index(request: Request):
 @router.get("/products")
 async def catalog(request: Request):
     products = PRODUCTS
-    return templates.TemplateResponse("products.html", {"request": request, "title": "Каталог", "product": products})
+    return templates.TemplateResponse("products.html", {
+        "request": request,
+        "title": "Каталог",
+        "products": products
+    })
+
+
+@router.get("/product/{product_id}")
+async def get_product_detail_page(request: Request, product_id: int):
+    product = next((p for p in PRODUCTS if p["id"] == product_id), None)
+    if not product:
+        return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+
+    return templates.TemplateResponse("product_detail.html", {
+        "request": request,
+        "product": product,
+        "title": product["name"]
+    })
 
 @router.get("/cart")
 async def cart_page(request: Request):
-    return templates.TemplateResponse("cart.html", {"request": request, "title": "Корзина"})
+    cart = request.session.get("cart", {})
+    total_sum = sum(item["price"] * item["quantity"] for item in cart.values())
+    is_empty = len(cart) == 0
+
+    return templates.TemplateResponse("cart.html", {
+        "request": request,
+        "cart_items": cart,
+        "total_sum": total_sum,
+        "is_empty": is_empty,
+        "title": "Корзина"
+    })
 
 @router.get("/auth/login")
 async def login_page(request: Request):

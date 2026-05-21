@@ -4,42 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - Мой Магазин</title>
-    <!-- CSS подключаем первым -->
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-    <!-- JS подключаем с defer, чтобы он загрузился после отрисовки HTML -->
     <script src="{{ url_for('static', path='/js/main.js') }}" defer></script>
 </head>
 <body>
-
     <header style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
         <nav>
             <a href="/" style="color: white; font-weight: bold; margin-right: 20px;">MyStore</a>
             <a href="/products" style="color: white; margin-right: 15px;">Каталог</a>
         </nav>
-
         <div>
             {% if request.session.get("user") %}
-                <!-- Если в сессии только email, выводим его -->
                 <span>Привет, {{ request.session.get("user") }}!</span>
                 <a href="/auth/logout" style="color: #ffaaaa; margin-left: 10px;">Выйти</a>
             {% else %}
                 <a href="/auth/login" style="color: white; margin-right: 10px;">Войти</a>
                 <a href="/auth/register" style="color: white;">Регистрация</a>
             {% endif %}
-
             <a href="/cart" style="color: white; margin-left: 20px; text-decoration: none;">
-                Корзина 🛒 <span id="cart-count" class="cart-icon" style="background: red; padding: 2px 8px; border-radius: 50%;">{{ cart_count or 0 }}</span>
+                Корзина 🛒 <span id="cart-count" style="background: red; padding: 2px 8px; border-radius: 50%;">{{ cart_count or 0 }}</span>
             </a>
         </div>
     </header>
-
     <main style="padding: 20px;">
         {% block content %}{% endblock %}
     </main>
-
     <footer style="text-align: center; margin-top: 50px; padding: 20px; border-top: 1px solid #eee;">
         <p>&copy; 2026 Мой Интернет-Магазин</p>
     </footer>
-
 </body>
 </html>

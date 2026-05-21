@@ -1,33 +1,29 @@
 {% extends "base.html" %}
-
 {% block content %}
     <h1>Каталог товаров</h1>
-
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         {% for product in products %}
             <div style="border: 1px solid #ccc; padding: 20px; width: 250px; border-radius: 8px; text-align: center;">
-
-                <!-- Название теперь тоже работает как ссылка на товар -->
-                <h3 style="margin-top: 0;">
-                    <a href="/product/{{ product.id }}" style="text-decoration: none; color: #333;">
-                        {{ product.name }}
-                    </a>
-                </h3>
-
+                <h3><a href="/product/{{ product.id }}" style="text-decoration: none; color: #333;">{{ product.name }}</a></h3>
                 <h2 style="color: #d9534f;">{{ product.price }} руб.</h2>
 
-                <!-- Ссылка на подробную страницу -->
-                <a href="/product/{{ product.id }}" style="display: block; margin-bottom: 15px; color: #007bff; text-decoration: none;">
-                    Подробнее о товаре
-                </a>
+                <!-- Кнопка быстрого просмотра (Задание 3.3) -->
+                <button onclick="quickView('{{ product.id }}')" style="margin-bottom: 10px; cursor: pointer;">Быстрый просмотр</button>
 
-                <!-- Кнопка в мини-карточке товара (как просят в ТЗ) -->
-                <form action="/cart/add/{{ product.id }}" method="POST">
-                    <button type="submit" style="padding: 10px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; width: 100%;">
-                        Добавить в корзину
-                    </button>
-                </form>
+                <!-- Кнопка добавления через JS (Задание 3.1) -->
+                <button class="add-to-cart-btn" data-product-id="{{ product.id }}"
+                        style="padding: 10px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; width: 100%;">
+                    Добавить в корзину
+                </button>
             </div>
         {% endfor %}
+    </div>
+
+    <!-- Модальное окно для быстрого просмотра -->
+    <div id="quickViewModal" style="display:none; position:fixed; top:20%; left:30%; background:white; border:2px solid #333; padding:20px; z-index:100;">
+        <h2 class="modal-title"></h2>
+        <div class="modal-body"><img src="" style="width:100px;"></div>
+        <p class="modal-description"></p>
+        <button onclick="document.getElementById('quickViewModal').style.display='none'">Закрыть</button>
     </div>
 {% endblock %}
