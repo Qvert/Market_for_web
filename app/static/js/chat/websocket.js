@@ -1,89 +1,116 @@
 /**
- * Класс ChatClient для управления WebSocket соединением
- * Реализует паттерн Event Emitter, экспоненциальное переподключение и отправку событий.
+ * Модуль ChatClient
+ * Отвечает ТОЛЬКО за транспортный слой (WebSocket соединение).
+ * Не знает ничего про HTML и DOM.
+ * Реализует паттерн EventEmitter.
  */
 class ChatClient {
     constructor(url, token = null) {
-        this.url = token ? `${url}?token=${token}` : url;
+        this.baseUrl = url;
+        this.token = token;
         this.ws = null;
-        this.eventListeners = {};
+        this.listeners = {};
 
-        // Настройки переподключения (Экспоненциальная задержка)
+        // Состояние реконнекта (Экспоненциальная задержка - Пункт 3.2)
         this.reconnectAttempts = 0;
-        this.baseDelay = 1000; // 1 секунда
-        this.maxDelay = 15000; // Максимум 15 секунд
-        this.isIntentionalDisconnect = false;
+        this.baseDelay = 1000;       // Начальная задержка 1 сек
+        this.maxDelay = 30000;       // Максимум 30 сек
+        this.intentionalClose = false;
+    }
+
+    // Вычисление задержки: 1s, 2s, 4s, 8s, 16s, 30s...
+    get _reconnectDelay() {
+        return Math.min(
+            this.baseDelay * Math.pow(2, this.reconnectAttempts),
+            this.maxDelay
+        );
+    }
+
+    get _wsUrl() {
+        const url = this.token
+            ? `${this.baseUrl}?token=${this.token}`
+            : this.baseUrl;
+        return url;
     }
 
     // Подключение к серверу
     connect() {
-        this.isIntentionalDisconnect = false;
-        this._triggerEvent('system', { type: 'connecting', message: 'Подключение к серверу...' });
+        this.intentionalClose = false;
+        this._emit('system', { type: 'connecting', message: 'Подключение...' });
 
-        this.ws = new WebSocket(this.url);
+        this.ws = new WebSocket(this._wsUrl);
 
         this.ws.onopen = () => {
             this.reconnectAttempts = 0;
-            this._triggerEvent('system', { type: 'connected', message: 'Соединение установлено' });
+            this._emit('system', { type: 'connected', message: 'Соединение установлено' });
         };
 
-        this.ws.onmessage = (event) => {
-            const parsed = JSON.parse(event.data);
-            this._triggerEvent(parsed.event, parsed.data);
+        this.ws.onmessage = ({ data }) => {
+            try {
+                const parsed = JSON.parse(data);
+                this._emit(parsed.event, parsed.data);
+            } catch (e) {
+                console.error('[ChatClient] Ошибка парсинга:', e);
+            }
         };
 
-        this.ws.onclose = (event) => {
-            if (this.isIntentionalDisconnect) return;
-
-            this._triggerEvent('system', { type: 'disconnected', message: 'Соединение потеряно' });
-            this._handleReconnect();
+        this.ws.onclose = (e) => {
+            if (this.intentionalClose) return;
+            this._emit('system', {
+                type: 'disconnected',
+                message: `Соединение потеряно (код ${e.code})`
+            });
+            this._scheduleReconnect();
         };
 
-        this.ws.onerror = (error) => {
-            this._triggerEvent('system', { type: 'error', message: 'Ошибка сети' });
-            this.ws.close();
+        this.ws.onerror = () => {
+            this._emit('system', { type: 'error', message: 'Ошибка WebSocket' });
         };
     }
 
-    // Экспоненциальное переподключение (Пункт 3.2)
-    _handleReconnect() {
-        const delay = Math.min(this.baseDelay * Math.pow(2, this.reconnectAttempts), this.maxDelay);
+    // Планирование переподключения с экспоненциальной задержкой
+    _scheduleReconnect() {
+        const delay = this._reconnectDelay;
         this.reconnectAttempts++;
 
-        this._triggerEvent('system', {
+        this._emit('system', {
             type: 'reconnecting',
-            message: `Переподключение через ${delay / 1000} сек... (Попытка ${this.reconnectAttempts})`
+            message: `Переподключение через ${Math.round(delay / 1000)}с (попытка ${this.reconnectAttempts})`
         });
 
-        setTimeout(() => this.connect(), delay);
+        setTimeout(() => {
+            if (!this.intentionalClose) this.connect();
+        }, delay);
     }
 
-    // Отправка данных на сервер
-    send(event, data) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ event: event, data: data }));
-        } else {
-            console.error("WebSocket не готов к отправке данных");
+    // Отправка события на сервер
+    send(event, data = {}) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.warn('[ChatClient] Соединение не готово');
+            return false;
         }
+        this.ws.send(JSON.stringify({ event, data }));
+        return true;
     }
 
-    // Подписка на события от сервера
+    // Подписка на событие
     on(event, callback) {
-        if (!this.eventListeners[event]) {
-            this.eventListeners[event] = [];
-        }
-        this.eventListeners[event].push(callback);
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(callback);
+        return this; // Для цепочки вызовов: client.on(...).on(...)
     }
 
-    // Вызов обработчиков
-    _triggerEvent(event, data) {
-        if (this.eventListeners[event]) {
-            this.eventListeners[event].forEach(callback => callback(data));
-        }
+    // Вызов подписчиков события
+    _emit(event, data) {
+        (this.listeners[event] || []).forEach(cb => {
+            try { cb(data); }
+            catch (e) { console.error(`[ChatClient] Ошибка в обработчике '${event}':`, e); }
+        });
     }
 
+    // Намеренное отключение (без реконнекта)
     disconnect() {
-        this.isIntentionalDisconnect = true;
-        if (this.ws) this.ws.close();
+        this.intentionalClose = true;
+        if (this.ws) this.ws.close(1000, 'Пользователь вышел');
     }
 }

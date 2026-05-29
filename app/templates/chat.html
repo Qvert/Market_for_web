@@ -3,302 +3,521 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат в реальном времени</title>
+    <title>Чат — Market</title>
     <style>
-        :root { --bg: #f3f4f6; --white: #ffffff; --primary: #3b82f6; --primary-hover: #2563eb; --text-main: #1f2937; --text-muted: #6b7280; --border: #e5e7eb; --me-bg: #dbeafe; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; padding: 20px; }
+        /* ===== ПЕРЕМЕННЫЕ ===== */
+        :root {
+            --sidebar-w: 240px;
+            --users-w: 220px;
+            --primary: #4f46e5;
+            --primary-light: #eef2ff;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warn: #f59e0b;
+            --bg: #f8fafc;
+            --white: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --muted: #64748b;
+            --radius: 10px;
+        }
 
-        /* Layout */
-        .app-container { display: flex; width: 100%; max-width: 1200px; height: 90vh; background: var(--white); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; }
+        /* ===== СБРОС ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* Левая панель (Комнаты) */
-        .sidebar-left { width: 250px; background: #f8fafc; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-        .panel-header { padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-main); background: var(--white); }
-        .room-list { list-style: none; padding: 10px; overflow-y: auto; }
-        .room-item { padding: 12px 15px; border-radius: 8px; margin-bottom: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); transition: 0.2s; }
-        .room-item:hover { background: #e2e8f0; }
-        .room-item.active { background: var(--primary); color: var(--white); }
-        .unread-badge { background: #ef4444; color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; display: none; }
-        .unread-badge.show { display: inline-block; }
+        /* ===== ШАПКА ===== */
+        .top-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .top-bar .logo { font-weight: 700; font-size: 18px; color: var(--primary); }
+        #status-badge { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: #fef3c7; color: #92400e; transition: 0.3s; }
+        #status-badge.connected { background: #d1fae5; color: #065f46; }
+        #status-badge.error { background: #fee2e2; color: #991b1b; }
 
-        /* Центр (Чат) */
-        .chat-center { flex: 1; display: flex; flex-direction: column; position: relative; }
-        .chat-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .system-status { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #fee2e2; color: #b91c1c; display: none; }
-        .system-status.visible { display: block; }
+        /* ===== ГЛАВНЫЙ КОНТЕЙНЕР ===== */
+        .chat-layout { display: flex; flex: 1; overflow: hidden; }
 
-        .chat-history { flex: 1; padding: 20px; overflow-y: auto; background: var(--white); display: flex; flex-direction: column; gap: 10px; }
+        /* ===== ЛЕВАЯ ПАНЕЛЬ (Комнаты) ===== */
+        .sidebar-left { width: var(--sidebar-w); background: var(--white); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .panel-title { padding: 16px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); }
+        .room-list { list-style: none; padding: 8px; flex: 1; overflow-y: auto; }
+        .room-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius); cursor: pointer; transition: background 0.15s; margin-bottom: 2px; }
+        .room-item:hover { background: var(--bg); }
+        .room-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+        .room-item .room-name { flex: 1; font-size: 14px; }
+        .room-item .room-meta { display: flex; align-items: center; gap: 6px; }
+        .room-count { font-size: 11px; color: var(--muted); }
+        .room-item.active .room-count { color: var(--primary); }
+        .unread-badge { background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 9px; display: none; align-items: center; justify-content: center; padding: 0 5px; }
+        .unread-badge.visible { display: flex; }
 
-        /* Сообщения */
-        .msg-wrapper { display: flex; flex-direction: column; max-width: 75%; }
-        .msg-others { align-self: flex-start; }
-        .msg-mine { align-self: flex-end; }
+        /* ===== ЦЕНТР (Чат) ===== */
+        .chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .chat-header { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .chat-header .room-label { font-weight: 600; font-size: 16px; }
+        .chat-header .members-count { font-size: 13px; color: var(--muted); }
 
-        .msg-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-        .msg-mine .msg-meta { text-align: right; }
+        /* ===== СООБЩЕНИЯ ===== */
+        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
 
-        .msg-bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
-        .msg-others .msg-bubble { background: #f1f5f9; color: var(--text-main); border-bottom-left-radius: 2px; }
-        .msg-mine .msg-bubble { background: var(--primary); color: var(--white); border-bottom-right-radius: 2px; }
+        /* Системное сообщение (вход/выход) */
+        .msg-system { align-self: center; font-size: 12px; color: var(--muted); background: var(--white); border: 1px solid var(--border); padding: 4px 14px; border-radius: 20px; }
 
-        .system-msg { align-self: center; font-size: 12px; color: var(--text-muted); background: #f8fafc; padding: 4px 12px; border-radius: 12px; margin: 10px 0; }
+        /* Чужое сообщение */
+        .msg-row { display: flex; gap: 10px; max-width: 72%; }
+        .msg-row.mine { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-row.others { align-self: flex-start; }
 
-        /* Ввод сообщения */
-        .chat-input-area { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: var(--white); }
-        .chat-input-area input { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px; outline: none; }
-        .chat-input-area input:focus { border-color: var(--primary); }
-        .chat-input-area button { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .chat-input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .msg-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+        .msg-row.mine .msg-avatar { background: #6366f1; }
 
-        /* Правая панель (Участники) */
-        .sidebar-right { width: 220px; background: #f8fafc; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
-        .user-list { padding: 10px; overflow-y: auto; flex: 1; }
-        .user-item { display: flex; align-items: center; gap: 8px; padding: 8px; font-size: 13px; color: var(--text-main); }
-        .status-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; }
+        .msg-content { display: flex; flex-direction: column; gap: 4px; }
+        .msg-meta { font-size: 11px; color: var(--muted); display: flex; gap: 6px; }
+        .msg-row.mine .msg-meta { justify-content: flex-end; }
+        .msg-author { font-weight: 600; }
 
-        /* Индикатор печати */
-        .typing-box { padding: 10px 15px; font-size: 12px; color: var(--primary); font-style: italic; min-height: 36px; border-top: 1px solid var(--border); }
+        .msg-bubble { padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-break: break-word; }
+        .msg-row.others .msg-bubble { background: var(--white); border: 1px solid var(--border); border-top-left-radius: 4px; }
+        .msg-row.mine .msg-bubble { background: var(--primary); color: #fff; border-top-right-radius: 4px; }
+
+        /* Индикатор "отправляется" */
+        .msg-status { font-size: 10px; color: var(--muted); align-self: flex-end; }
+        .msg-row.mine .msg-status { color: rgba(255,255,255,0.7); }
+
+        /* ===== ВВОД ===== */
+        .chat-input-wrap { background: var(--white); border-top: 1px solid var(--border); padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0; }
+        #msg-input { flex: 1; resize: none; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; font-size: 14px; outline: none; line-height: 1.4; max-height: 120px; font-family: inherit; }
+        #msg-input:focus { border-color: var(--primary); }
+        #msg-input:disabled { background: var(--bg); cursor: not-allowed; }
+        #send-btn { background: var(--primary); color: #fff; border: none; border-radius: var(--radius); padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+        #send-btn:hover:not(:disabled) { background: #4338ca; }
+        #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Индикатор набора текста снизу */
+        .typing-hint { font-size: 12px; color: var(--primary); padding: 0 16px 8px; height: 24px; font-style: italic; flex-shrink: 0; background: var(--white); }
+
+        /* ===== ПРАВАЯ ПАНЕЛЬ (Участники) ===== */
+        .sidebar-right { width: var(--users-w); background: var(--white); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+        .user-list { list-style: none; padding: 8px; flex: 1; overflow-y: auto; }
+        .user-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius); font-size: 13px; }
+        .user-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; flex-shrink: 0; }
+        .user-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user-type { font-size: 10px; color: var(--muted); }
+        .typing-users { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--primary); font-style: italic; min-height: 40px; }
+
+        /* ===== АДАПТИВ ===== */
+        @media (max-width: 768px) {
+            .sidebar-left { width: 60px; }
+            .room-name, .room-count { display: none; }
+            .sidebar-right { display: none; }
+        }
+        @media (max-width: 480px) {
+            .sidebar-left { display: none; }
+        }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <!-- Левая панель: Комнаты -->
+<!-- Шапка -->
+<div class="top-bar">
+    <span class="logo">💬 Market Chat</span>
+    <span id="status-badge">Подключение...</span>
+</div>
+
+<!-- Основной контейнер -->
+<div class="chat-layout">
+
+    <!-- Левая панель -->
     <div class="sidebar-left">
-        <div class="panel-header">Комнаты</div>
-        <ul class="room-list">
-            <li class="room-item active" data-room="general" onclick="switchRoom('general')">
-                Общий чат <span class="unread-badge" id="badge-general">0</span>
+        <div class="panel-title">Комнаты</div>
+        <ul class="room-list" id="room-list">
+            <li class="room-item active" data-room="general">
+                <span class="room-name">Общий чат</span>
+                <span class="room-meta">
+                    <span class="room-count" id="count-general">0</span>
+                    <span class="unread-badge" id="badge-general">0</span>
+                </span>
             </li>
-            <li class="room-item" data-room="support" onclick="switchRoom('support')">
-                Поддержка <span class="unread-badge" id="badge-support">0</span>
+            <li class="room-item" data-room="support">
+                <span class="room-name">Поддержка</span>
+                <span class="room-meta">
+                    <span class="room-count" id="count-support">0</span>
+                    <span class="unread-badge" id="badge-support">0</span>
+                </span>
             </li>
-            <li class="room-item" data-room="products-discussion" onclick="switchRoom('products-discussion')">
-                Товары <span class="unread-badge" id="badge-products-discussion">0</span>
+            <li class="room-item" data-room="products-discussion">
+                <span class="room-name">Товары</span>
+                <span class="room-meta">
+                    <span class="room-count" id="count-products-discussion">0</span>
+                    <span class="unread-badge" id="badge-products-discussion">0</span>
+                </span>
             </li>
-            <li class="room-item" data-room="random" onclick="switchRoom('random')">
-                Случайная <span class="unread-badge" id="badge-random">0</span>
+            <li class="room-item" data-room="random">
+                <span class="room-name">Случайная</span>
+                <span class="room-meta">
+                    <span class="room-count" id="count-random">0</span>
+                    <span class="unread-badge" id="badge-random">0</span>
+                </span>
             </li>
         </ul>
     </div>
 
-    <!-- Центр: Чат -->
-    <div class="chat-center">
+    <!-- Центральная область чата -->
+    <div class="chat-main">
         <div class="chat-header">
-            <h3 id="current-room-name">Общий чат</h3>
-            <div id="system-status" class="system-status">Соединение...</div>
+            <span class="room-label" id="header-room">Общий чат</span>
+            <span class="members-count" id="header-count">0 участников</span>
         </div>
 
-        <div class="chat-history" id="chat-history">
-            <!-- Сообщения -->
-        </div>
+        <div class="chat-messages" id="chat-messages"></div>
 
-        <div class="chat-input-area">
-            <input type="text" id="msg-input" placeholder="Написать сообщение..." disabled autocomplete="off">
-            <button id="send-btn" onclick="sendUI_Message()" disabled>Отправить</button>
+        <div class="typing-hint" id="typing-hint"></div>
+
+        <div class="chat-input-wrap">
+            <textarea id="msg-input" placeholder="Написать сообщение..." rows="1" disabled></textarea>
+            <button id="send-btn" disabled>Отправить</button>
         </div>
     </div>
 
-    <!-- Правая панель: Участники -->
+    <!-- Правая панель -->
     <div class="sidebar-right">
-        <div class="panel-header" id="users-count">Онлайн: 0</div>
-        <div class="user-list" id="user-list">
-            <!-- Пользователи -->
-        </div>
-        <div class="typing-box" id="typing-indicator"></div>
+        <div class="panel-title" id="right-panel-title">Участники (0)</div>
+        <ul class="user-list" id="user-list"></ul>
+        <div class="typing-users" id="typing-users"></div>
     </div>
 </div>
 
-<!-- Подключаем наш выделенный модуль WebSocket -->
+<!-- Модуль WebSocket -->
 <script src="/static/js/chat/websocket.js"></script>
 
 <script>
-    // --- ИНИЦИАЛИЗАЦИЯ ---
-    // Укажите URL бэкенда FastAPI (Обратите внимание на протокол ws://)
-    const WS_URL = "ws://localhost:8000/ws";
+    // ====================================================
+    // КОНФИГУРАЦИЯ
+    // ====================================================
+    const WS_URL = `ws://${location.host}/ws`;
+    const MY_TOKEN = null; // null = гость. Подставь токен из localStorage/cookie если есть
 
-    // Создаем экземпляр клиента из нашего модуля
-    const chatClient = new ChatClient(WS_URL);
+    // ====================================================
+    // СОСТОЯНИЕ
+    // ====================================================
+    const state = {
+        currentRoom: 'general',
+        myUserId: null,          // Устанавливается при первом входящем сообщении
+        myName: null,
+        unread: { general: 0, support: 0, 'products-discussion': 0, random: 0 },
+        roomCounts: { general: 0, support: 0, 'products-discussion': 0, random: 0 },
+        typingUsers: {},          // userId -> имя (кто сейчас печатает)
+        typingTimers: {},         // userId -> таймаут очистки
+    };
 
-    let currentRoom = 'general';
-    let myName = ""; // Для визуального отличия своих сообщений
-    let unreadCounts = { 'general': 0, 'support': 0, 'products-discussion': 0, 'random': 0 };
+    // Названия комнат для отображения
+    const ROOM_LABELS = {
+        'general': 'Общий чат',
+        'support': 'Поддержка',
+        'products-discussion': 'Обсуждение товаров',
+        'random': 'Случайная комната',
+    };
 
-    // Переменные для debounce печати
-    let typingTimer;
-    const TYPING_DELAY = 1000;
+    // ====================================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ====================================================
+    const client = new ChatClient(WS_URL, MY_TOKEN);
 
-    // --- ПОДПИСКА НА СИСТЕМНЫЕ СОБЫТИЯ ---
-    chatClient.on('system', (data) => {
-        const statusEl = document.getElementById('system-status');
+    // ====================================================
+    // СИСТЕМНЫЕ СОБЫТИЯ (соединение/реконнект)
+    // ====================================================
+    client.on('system', (data) => {
+        const badge = document.getElementById('status-badge');
+        badge.textContent = data.message;
+        badge.className = '';
+
+        const input = document.getElementById('msg-input');
+        const btn = document.getElementById('send-btn');
 
         if (data.type === 'connected') {
-            statusEl.classList.remove('visible');
-            document.getElementById('msg-input').disabled = false;
-            document.getElementById('send-btn').disabled = false;
-            // При успешном коннекте входим в комнату
-            chatClient.send('join_room', { room: currentRoom });
+            badge.classList.add('connected');
+            input.disabled = false;
+            btn.disabled = false;
+            // Входим в комнату автоматически
+            client.send('join_room', { room: state.currentRoom });
         } else {
-            statusEl.classList.add('visible');
-            statusEl.innerText = data.message;
-            statusEl.style.background = data.type === 'reconnecting' ? '#fef3c7' : '#fee2e2';
-            statusEl.style.color = data.type === 'reconnecting' ? '#92400e' : '#b91c1c';
+            if (data.type === 'error') badge.classList.add('error');
+            input.disabled = true;
+            btn.disabled = true;
+        }
 
-            document.getElementById('msg-input').disabled = true;
-            document.getElementById('send-btn').disabled = true;
+        _appendSystem(data.message);
+    });
+
+    // ====================================================
+    // ЧАТОВЫЕ СОБЫТИЯ
+    // ====================================================
+
+    // История комнаты при входе
+    client.on('room_history', ({ room, messages }) => {
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        messages.forEach(_renderMessage);
+        _scrollToBottom();
+    });
+
+    // Новое сообщение
+    client.on('message', (msg) => {
+        // Определяем своё имя по первому ответу (если ещё неизвестно)
+        if (!state.myUserId && msg.authorId) {
+            // Мы не знаем свой ID с фронтенда без авторизации,
+            // поэтому "mine" мы определяем по имени после первого своего сообщения
+        }
+
+        _renderMessage(msg);
+
+        // Счётчик непрочитанных для фоновых комнат
+        if (msg.room && msg.room !== state.currentRoom) {
+            state.unread[msg.room] = (state.unread[msg.room] || 0) + 1;
+            _updateBadge(msg.room);
+        } else {
+            _scrollToBottom();
         }
     });
 
-    // --- ПОДПИСКА НА СОБЫТИЯ ЧАТА ---
-
-    // 1. Получение истории комнаты
-    chatClient.on('room_history', (data) => {
-        const historyEl = document.getElementById('chat-history');
-        historyEl.innerHTML = ''; // Очистка при смене комнаты
-        data.messages.forEach(msg => renderMessage(msg));
-        chatClient.send("get_online_users", { room: currentRoom });
+    // Печатает...
+    client.on('typing_status', ({ userId, name, isTyping }) => {
+        if (isTyping) {
+            state.typingUsers[userId] = name;
+            // Автоочистка через 3 сек если не придет isTyping: false
+            clearTimeout(state.typingTimers[userId]);
+            state.typingTimers[userId] = setTimeout(() => {
+                delete state.typingUsers[userId];
+                _renderTyping();
+            }, 3000);
+        } else {
+            clearTimeout(state.typingTimers[userId]);
+            delete state.typingUsers[userId];
+        }
+        _renderTyping();
     });
 
-    // 2. Новое сообщение
-    chatClient.on('message', (msg) => {
-        // Мы используем оптимистичный UI, поэтому свои сообщения (отрисованные сразу) игнорируем
-        // Но если бэкенд шлет их нам, нужно проверять.
-        // Для простоты мы будем отрисовывать всё, что шлет сервер.
-        renderMessage(msg);
+    // Список онлайн-пользователей
+    client.on('online_users', ({ room, users }) => {
+        state.roomCounts[room] = users.length;
+        _updateRoomCount(room);
 
-        // Определение имени (хак для отличия своих сообщений)
-        if (!myName) myName = msg.authorName; // Сохраняем имя при первом ответе сервера
+        if (room === state.currentRoom) {
+            _renderUserList(users);
+        }
     });
 
-    // 3. Кто-то печатает
-    chatClient.on('typing_status', (data) => {
-        const indicator = document.getElementById('typing-indicator');
-        indicator.innerText = data.isTyping ? `${data.name} печатает...` : '';
+    // Кто-то вошёл
+    client.on('user_joined', ({ name, room }) => {
+        if (room === state.currentRoom) {
+            _appendSystem(`${name} присоединился к комнате`);
+        }
     });
 
-    // 4. Список юзеров и их входы/выходы
-    chatClient.on('online_users', (data) => renderUserList(data.users));
-
-    chatClient.on('user_joined', (data) => {
-        renderSystemMessage(`${data.name} присоединился к комнате`);
-        chatClient.send("get_online_users", { room: currentRoom });
+    // Кто-то вышел
+    client.on('user_left', ({ name, room }) => {
+        if (room === state.currentRoom) {
+            _appendSystem(`${name} покинул комнату`);
+        }
     });
 
-    chatClient.on('user_left', (data) => {
-        renderSystemMessage(`${data.name} покинул комнату`);
-        chatClient.send("get_online_users", { room: currentRoom });
+    // Ошибка от сервера
+    client.on('error', ({ message }) => {
+        _appendSystem(`⚠️ Ошибка: ${message}`);
     });
 
+    // ====================================================
+    // ДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЯ
+    // ====================================================
 
-    // --- UI ФУНКЦИИ И ДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЯ ---
+    // Клик по комнате — переключение
+    document.getElementById('room-list').addEventListener('click', (e) => {
+        const item = e.target.closest('.room-item');
+        if (!item) return;
 
-    // Пункт 3.3: Переключение комнат
-    function switchRoom(newRoom) {
-        if (newRoom === currentRoom) return;
+        const newRoom = item.dataset.room;
+        if (newRoom === state.currentRoom) return;
 
-        // Отправляем лив из старой
-        chatClient.send('leave_room', { room: currentRoom });
+        // Отправляем leave текущей
+        client.send('leave_room', { room: state.currentRoom });
 
-        // Меняем визуально
+        // Сброс визуала
         document.querySelectorAll('.room-item').forEach(el => el.classList.remove('active'));
-        document.querySelector(`.room-item[data-room="${newRoom}"]`).classList.add('active');
-        document.getElementById('current-room-name').innerText = newRoom;
+        item.classList.add('active');
 
-        // Сброс бейджа непрочитанных
-        unreadCounts[newRoom] = 0;
-        updateBadge(newRoom);
+        // Сброс непрочитанных
+        state.unread[newRoom] = 0;
+        _updateBadge(newRoom);
 
-        currentRoom = newRoom;
+        // Обновляем состояние
+        state.currentRoom = newRoom;
+        document.getElementById('header-room').textContent = ROOM_LABELS[newRoom] || newRoom;
 
-        // Джоин в новую
-        chatClient.send('join_room', { room: currentRoom });
-    }
+        // Очищаем чат и участников
+        document.getElementById('chat-messages').innerHTML = '';
+        document.getElementById('user-list').innerHTML = '';
+        state.typingUsers = {};
+        _renderTyping();
 
-    // Пункт 3.4: Отправка сообщения
-    function sendUI_Message() {
+        // Входим в новую
+        client.send('join_room', { room: newRoom });
+    });
+
+    // Отправка сообщения
+    document.getElementById('send-btn').addEventListener('click', _sendMessage);
+
+    document.getElementById('msg-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            _sendMessage();
+        }
+    });
+
+    // Debounce для индикатора печати (Пункт 3.5)
+    let typingTimer;
+    let isTypingSent = false;
+
+    document.getElementById('msg-input').addEventListener('input', () => {
+        if (!isTypingSent) {
+            client.send('typing', { room: state.currentRoom, isTyping: true });
+            isTypingSent = true;
+        }
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            client.send('typing', { room: state.currentRoom, isTyping: false });
+            isTypingSent = false;
+        }, 1500);
+    });
+
+    function _sendMessage() {
         const input = document.getElementById('msg-input');
         const text = input.value.trim();
         if (!text) return;
 
-        chatClient.send('send_message', { room: currentRoom, text: text });
+        client.send('send_message', { room: state.currentRoom, text });
         input.value = '';
+        input.style.height = 'auto';
 
-        // Сброс индикатора печати сразу после отправки
+        // Сбрасываем typing
         clearTimeout(typingTimer);
-        chatClient.send('typing', { room: currentRoom, isTyping: false });
-    }
-
-    // Пункт 3.5: Debounce для печати текста
-    document.getElementById('msg-input').addEventListener('input', () => {
-        chatClient.send('typing', { room: currentRoom, isTyping: true });
-
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => {
-            chatClient.send('typing', { room: currentRoom, isTyping: false });
-        }, TYPING_DELAY);
-    });
-
-    // Отправка по Enter
-    document.getElementById('msg-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendUI_Message();
-    });
-
-    // --- ФУНКЦИИ ОТРИСОВКИ (РЕНДЕРИНГ) ---
-
-    function renderMessage(msg) {
-        const historyEl = document.getElementById('chat-history');
-        // Проверяем, наше это сообщение или чужое (для визуала)
-        const isMine = (msg.authorName === myName);
-        const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const html = `
-            <div class="msg-wrapper ${isMine ? 'msg-mine' : 'msg-others'}">
-                <div class="msg-meta">${isMine ? 'Вы' : msg.authorName} • ${time}</div>
-                <div class="msg-bubble">${msg.text}</div>
-            </div>
-        `;
-        historyEl.insertAdjacentHTML('beforeend', html);
-
-        // Автоскролл вниз
-        historyEl.scrollTop = historyEl.scrollHeight;
-    }
-
-    function renderSystemMessage(text) {
-        const historyEl = document.getElementById('chat-history');
-        historyEl.insertAdjacentHTML('beforeend', `<div class="system-msg">${text}</div>`);
-        historyEl.scrollTop = historyEl.scrollHeight;
-    }
-
-    function renderUserList(users) {
-        document.getElementById('users-count').innerText = `Онлайн: ${users.length}`;
-        const listEl = document.getElementById('user-list');
-        listEl.innerHTML = '';
-
-        users.forEach(user => {
-            const icon = user.is_guest ? '👤' : '⭐';
-            listEl.insertAdjacentHTML('beforeend', `
-                <div class="user-item">
-                    <div class="status-dot"></div>
-                    ${icon} ${user.name}
-                </div>
-            `);
-        });
-    }
-
-    function updateBadge(room) {
-        const badge = document.getElementById(`badge-${room}`);
-        if (unreadCounts[room] > 0) {
-            badge.innerText = unreadCounts[room];
-            badge.classList.add('show');
-        } else {
-            badge.classList.remove('show');
+        if (isTypingSent) {
+            client.send('typing', { room: state.currentRoom, isTyping: false });
+            isTypingSent = false;
         }
     }
 
-    // Запуск подключения
-    chatClient.connect();
+    // ====================================================
+    // РЕНДЕР-ФУНКЦИИ
+    // ====================================================
 
+    function _renderMessage(msg) {
+        const container = document.getElementById('chat-messages');
+
+        // Определяем, своё ли сообщение
+        // Простой способ без авторизации: если имя совпадает с тем, под которым мы зашли
+        const isMine = state.myName && msg.authorName === state.myName;
+        if (!state.myName && msg._isOptimistic) {
+            state.myName = msg.authorName;
+        }
+
+        const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const initial = (msg.authorName || '?')[0].toUpperCase();
+
+        const div = document.createElement('div');
+        div.className = `msg-row ${isMine ? 'mine' : 'others'}`;
+        div.dataset.msgId = msg.id;
+        div.innerHTML = `
+            <div class="msg-avatar">${initial}</div>
+            <div class="msg-content">
+                <div class="msg-meta">
+                    <span class="msg-author">${isMine ? 'Вы' : msg.authorName}</span>
+                    <span>${time}</span>
+                </div>
+                <div class="msg-bubble">${_escapeHtml(msg.text)}</div>
+            </div>
+        `;
+        container.appendChild(div);
+    }
+
+    function _appendSystem(text) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'msg-system';
+        div.textContent = text;
+        container.appendChild(div);
+        _scrollToBottom();
+    }
+
+    function _renderUserList(users) {
+        const list = document.getElementById('user-list');
+        const title = document.getElementById('right-panel-title');
+        const headerCount = document.getElementById('header-count');
+
+        title.textContent = `Участники (${users.length})`;
+        headerCount.textContent = `${users.length} участников`;
+        list.innerHTML = '';
+
+        users.forEach(u => {
+            const li = document.createElement('li');
+            li.className = 'user-item';
+            li.innerHTML = `
+                <span class="user-dot"></span>
+                <span class="user-name">${_escapeHtml(u.name)}</span>
+                <span class="user-type">${u.is_guest ? 'Гость' : '⭐'}</span>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function _renderTyping() {
+        const names = Object.values(state.typingUsers);
+        const hint = document.getElementById('typing-hint');
+        const usersBox = document.getElementById('typing-users');
+
+        if (names.length === 0) {
+            hint.textContent = '';
+            usersBox.textContent = '';
+        } else if (names.length === 1) {
+            const text = `${names[0]} печатает...`;
+            hint.textContent = text;
+            usersBox.textContent = text;
+        } else {
+            const text = `${names.join(', ')} печатают...`;
+            hint.textContent = text;
+            usersBox.textContent = text;
+        }
+    }
+
+    function _updateBadge(room) {
+        const badge = document.getElementById(`badge-${room}`);
+        if (!badge) return;
+        const count = state.unread[room] || 0;
+        badge.textContent = count;
+        badge.classList.toggle('visible', count > 0);
+    }
+
+    function _updateRoomCount(room) {
+        const el = document.getElementById(`count-${room}`);
+        if (el) el.textContent = state.roomCounts[room] || 0;
+    }
+
+    function _scrollToBottom() {
+        const container = document.getElementById('chat-messages');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function _escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ====================================================
+    // ЗАПУСК
+    // ====================================================
+    client.connect();
 </script>
+
 </body>
 </html>
