@@ -1,73 +1,104 @@
-/**
- * Service Worker для Push-уведомлений.
- * Работает в фоне, независимо от вкладки браузера.
- * Файл ОБЯЗАТЕЛЬНО должен лежать в корне статики: /static/js/sw.js
- */
 
-const CACHE_NAME = 'market-notifications-v1';
+const CACHE_NAME = 'market-push-v1';
 
-// Установка Service Worker
+// 1. Установка и активация
 self.addEventListener('install', (event) => {
     console.log('[SW] Установлен');
-    self.skipWaiting(); // Активируем немедленно
+    self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Активирован');
-    event.waitUntil(clients.claim()); // Берём управление над всеми вкладками
+    console.log('[SW] Активирован и готов к работе');
+    event.waitUntil(clients.claim());
 });
 
 /**
- * Слушаем сообщения от основного потока (из notifications.js).
- * Когда приходит уведомление через WebSocket, основной поток
- * передаёт его сюда, а SW показывает системное уведомление.
+ * 2. Обработка входящих сообщений.
+ * Вызывается, когда NotificationManager (из основного окна)
+ * отправляет данные через postMessage.
  */
 self.addEventListener('message', (event) => {
-    const { type, notification } = event.data;
+    const data = event.data;
 
-    if (type === 'SHOW_NOTIFICATION') {
-        // Показываем системное Push-уведомление (Нативное, от ОС)
+    if (data.type === 'SHOW_NOTIFICATION') {
+        const { notification } = data;
+
+        const options = {
+            body: notification.body || '',
+            icon: notification.icon || '/static/img/logo.png', // Логотип сайта
+            badge: '/static/img/badge.png',                  // Иконка в статус-баре (для Android)
+            tag: notification.id || 'market-push-id',        // Группировка уведомлений
+            data: {
+                url: notification.url || '/'                 // Ссылка для перехода
+            },
+            vibrate: [200, 100, 200],                        // Вибрация
+            requireInteraction: true,                        // Не закрывать автоматически быстро
+            actions: [
+                { action: 'open', title: 'Посмотреть' },
+                { action: 'close', title: 'Закрыть' }
+            ]
+        };
+
         event.waitUntil(
-            self.registration.showNotification(notification.title, {
-                body:    notification.body,
-                icon:    notification.icon || '/static/img/logo.png',
-                badge:   '/static/img/badge.png',
-                tag:     notification.id || 'market-notification',
-                data:    { url: notification.url || '/' },
-                actions: [
-                    { action: 'open',    title: 'Открыть' },
-                    { action: 'dismiss', title: 'Закрыть' },
-                ],
-                vibrate:   [200, 100, 200], // Вибрация на мобильных
-                renotify:  true,
-            })
+            self.registration.showNotification(notification.title, options)
         );
     }
 });
 
-// Клик по системному уведомлению -> открываем нужную страницу
+/**
+ * 3. Логика клика по уведомлению.
+ * Если пользователь нажал на уведомление — открываем вкладку или переходим по URL.
+ */
 self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
+    const notification = event.notification;
+    const action = event.action;
 
-    const url = event.notification.data?.url || '/';
+    // Закрываем уведомление сразу после клика
+    notification.close();
 
-    if (event.action === 'dismiss') return;
+    if (action === 'close') return;
 
-    // Открываем или фокусируемся на нужной вкладке
+    const targetUrl = notification.data.url;
+
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
-            .then((clientList) => {
-                // Ищем уже открытую вкладку с нашим сайтом
-                for (const client of clientList) {
-                    if (client.url.includes(self.location.origin) && 'focus' in client) {
-                        client.navigate(url);
+            .then((windowClients) => {
+                // Если есть открытая вкладка нашего сайта — фокусируемся на ней и переходим
+                for (let i = 0; i < windowClients.length; i++) {
+                    const client = windowClients[i];
+                    if (client.url.includes(self.location.origin) && 'navigate' in client) {
+                        client.navigate(targetUrl);
                         return client.focus();
                     }
                 }
-                // Если вкладки нет — открываем новую
+                // Если вкладок нет — открываем новую
                 if (clients.openWindow) {
-                    return clients.openWindow(url);
+                    return clients.openWindow(targetUrl);
                 }
             })
     );
+});
+
+/**
+ * 4. Обработка нативного Push (на будущее).
+ * Если ты решишь использовать Firebase Cloud Messaging или ntfy через Web Push API.
+ */
+self.addEventListener('push', (event) => {
+    if (!event.data) return;
+
+    try {
+        const data = event.data.json();
+        const title = data.title || 'Новое уведомление';
+        const options = {
+            body: data.message || data.body,
+            icon: '/static/img/logo.png',
+            data: { url: data.click || data.url || '/' }
+        };
+
+        event.waitUntil(
+            self.registration.showNotification(title, options)
+        );
+    } catch (e) {
+        console.error('[SW] Ошибка обработки Push-события:', e);
+    }
 });

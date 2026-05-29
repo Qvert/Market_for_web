@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Request, HTTPException, status
+from typing import Optional, List
+
+from fastapi import APIRouter, HTTPException, status, Query
 
 from app.data import PRODUCTS, CATEGORIES
 
 router = APIRouter(prefix="/api", tags=["Catalog"])
 
-@router.get("/products")
-async def get_products():
+
+@router.get("/", response_model=List[dict])
+async def get_products(category_id: Optional[int] = Query(None)):
+    if category_id is not None:
+        filtered_products = [p for p in PRODUCTS if p.get("categoryId") == category_id]
+        return filtered_products
     return PRODUCTS
 
 @router.get("/product/{id}")
