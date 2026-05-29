@@ -1,22 +1,10 @@
 from fastapi import APIRouter, Request, status, HTTPException, Depends, Query
-from pydantic import BaseModel, EmailStr
 
 from app.data import USERS
+from app.schemas.auth import UserRegister, UserLogin
 from app.security import get_hash_password, verify_password, get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
-
-
-class UserRegister(BaseModel):
-    name: str
-    password: str
-    email: EmailStr
-
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
 
 @router.get("/check-email")
 async def check_email(email: str = Query(...)):

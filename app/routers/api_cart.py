@@ -1,17 +1,10 @@
 from fastapi import APIRouter, Request, Depends, status, HTTPException
-from pydantic import BaseModel
 
 from app.data import PRODUCTS
+from app.schemas.cart import CartItemAdd, CartItemUpdate
 from app.security import get_current_user
 
 router = APIRouter(prefix="/api/cart", tags=["Cart"])
-
-class CartItemAdd(BaseModel):
-    product_id: int
-    quantity: int = 1
-
-class CartItemUpdate(BaseModel):
-    quantity: int
 
 @router.get("")
 async def get_cart(request: Request, current_user: dict = Depends(get_current_user)):
