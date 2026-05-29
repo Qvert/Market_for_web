@@ -6,12 +6,56 @@
     <title>{{ title }} - Мой Магазин</title>
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
     <script src="{{ url_for('static', path='/js/main.js') }}" defer></script>
+    <style>
+        /* Кнопка открытия чата (плавающая) */
+        .chat-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79,70,229,0.4);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        .chat-fab:hover { transform: scale(1.1); }
+
+        /* Бейдж непрочитанных на кнопке */
+        .chat-fab-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        .chat-fab-badge.visible { display: flex; }
+    </style>
 </head>
 <body>
     <header style="background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center;">
         <nav>
             <a href="/" style="color: white; font-weight: bold; margin-right: 20px;">MyStore</a>
             <a href="/products" style="color: white; margin-right: 15px;">Каталог</a>
+            <!-- НОВОЕ: Ссылка на чат -->
+            <a href="/chat" style="color: white; margin-right: 15px;">💬 Чат</a>
         </nav>
         <div>
             {% if request.session.get("user") %}
@@ -26,11 +70,38 @@
             </a>
         </div>
     </header>
+
     <main style="padding: 20px;">
         {% block content %}{% endblock %}
     </main>
+
     <footer style="text-align: center; margin-top: 50px; padding: 20px; border-top: 1px solid #eee;">
         <p>&copy; 2026 Мой Интернет-Магазин</p>
     </footer>
+
+    <!-- НОВОЕ: Плавающая кнопка чата (показывается на всех страницах кроме /chat) -->
+    {% if request.url.path != '/chat' %}
+    <button class="chat-fab" onclick="window.location.href='/chat'" title="Открыть чат">
+        💬
+        <span class="chat-fab-badge" id="fab-badge">0</span>
+    </button>
+    {% endif %}
+
+    {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', path='/js/notifications.js') }}"></script>
+    <script>
+        // Инициализируем систему уведомлений на всех страницах
+        const SESSION_USER = "{{ request.session.get('user') or '' }}";
+
+        const notifManager = new NotificationManager(
+            `ws://${location.host}/api/notify/subscribe`,
+            SESSION_USER || null
+        );
+
+        // Запускаем после загрузки страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            notifManager.init();
+        });
+    </script>
 </body>
 </html>

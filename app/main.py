@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.views import pages
+from app.routers.ws_notifications import router as notifications_router
 from app.routers.ws_chat import router as ws_chat_router
 from app.services.chat_service import chat_service
 from app.routers.api_auth import router as auth_router
@@ -44,6 +45,8 @@ app.include_router(cart_router)
 app.include_router(catalog_router)
 
 app.include_router(ws_chat_router)
+
+app.include_router(notifications_router)
 
 
 if __name__ == "__main__":

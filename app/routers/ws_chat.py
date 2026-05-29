@@ -84,5 +84,4 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         pass
     finally:
-        # Гарантированная очистка при любом виде отключения
         await chat_service.disconnect(socket_id)
