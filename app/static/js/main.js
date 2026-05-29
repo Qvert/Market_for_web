@@ -1,11 +1,9 @@
-// Ждем загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
     updateCartCounter();
     setupEventListeners();
 });
 
 function setupEventListeners() {
-    // 1. Динамическое добавление в корзину (3.1)
     const addToCartButtons = document.querySelectorAll('.add-to-cart-btn');
     addToCartButtons.forEach(button => {
         button.addEventListener('click', async (e) => {
@@ -14,7 +12,6 @@ function setupEventListeners() {
         });
     });
 
-    // 2. Проверка email при регистрации (3.4) - ИСПРАВЛЕН ID на 'reg-email'
     const emailInput = document.getElementById('reg-email');
     if (emailInput) {
         emailInput.addEventListener('blur', async () => {
@@ -23,7 +20,7 @@ function setupEventListeners() {
         });
     }
 
-    // 3. Обработка формы регистрации - ТЕПЕРЬ ВНУТРИ setupEventListeners
+    // 3. Обработка формы регистрации
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
@@ -138,32 +135,19 @@ async function checkEmailUniqueness(email) {
         }
     } catch (err) { console.error('Ошибка проверки email'); }
 }
-async function updateQuantity(productId, newQuantity) {
-    // Если пытаемся сделать меньше 1, ничего не делаем
-    if (newQuantity < 1) return;
+function recalculateTotal() {
+    let total = 0;
+    document.querySelectorAll('.item-total').forEach(el => {
+        total += parseFloat(el.textContent);
+    });
 
-    try {
-        const response = await fetch(`/api/cart/items/${productId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ quantity: newQuantity })
-        });
-
-        if (response.ok) {
-            // Самый простой способ обновить итоговую сумму и список в SSR — перезагрузить страницу
-            location.reload();
-        } else {
-            const error = await response.json();
-            alert('Ошибка при обновлении: ' + (error.detail || 'Неизвестная ошибка'));
-        }
-    } catch (err) {
-        console.error('Ошибка запроса:', err);
+    const totalEl = document.getElementById('total-price');
+    if (totalEl) {
+        totalEl.textContent = total;
     }
 }
 async function removeItem(productId) {
-    if (!confirm('Вы уверены, что хотите удалить этот товар из корзины?')) return;
+    if (!confirm('Удалить товар?')) return;
 
     try {
         const response = await fetch(`/api/cart/items/${productId}`, {
@@ -171,13 +155,51 @@ async function removeItem(productId) {
         });
 
         if (response.ok) {
-            // Перезагружаем страницу, чтобы увидеть обновленную корзину
-            location.reload();
-        } else {
-            const error = await response.json();
-            alert('Ошибка при удалении: ' + (error.detail || 'Неизвестная ошибка'));
+            const row = document.getElementById(`row-${productId}`);
+            if (row) {
+                row.remove();
+            }
+
+            recalculateTotal();
+
+            updateCartCounter();
+
+            // 4. Если товаров больше нет, можно вывести надпись "Пусто"
+            const table = document.querySelector('table');
+            if (table && table.rows.length <= 1) { // 1 — это заголовок (th)
+                location.reload(); // Тут можно перезагрузить один раз, чтобы показать блок "Корзина пуста"
+            }
         }
     } catch (err) {
         console.error('Ошибка удаления:', err);
+    }
+}
+async function changeQuantity(productId, delta) {
+    const qtyElement = document.getElementById(`qty-${productId}`);
+    if (!qtyElement) return;
+
+    let currentQty = parseInt(qtyElement.textContent);
+    let newQty = currentQty + delta;
+
+    if (newQty < 1) return;
+
+    try {
+        const response = await fetch(`/api/cart/items/${productId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: newQty })
+        });
+
+        if (response.ok) {
+            qtyElement.textContent = newQty;
+
+            const row = qtyElement.closest('tr');
+            const price = parseFloat(row.querySelector('.item-price').textContent);
+            row.querySelector('.item-total').textContent = (price * newQty) + " руб.";
+
+            recalculateTotal(); // Ваша функция пересчета итога всей корзины
+        }
+    } catch (err) {
+        console.error("Ошибка обновления количества:", err);
     }
 }

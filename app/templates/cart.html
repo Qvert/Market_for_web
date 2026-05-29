@@ -13,19 +13,19 @@
                 <th>Действие</th>
             </tr>
             {% for p_id, item in cart_items.items() %}
-            <tr>
+            <tr id="row-{{ p_id }}">
                 <td>{{ item.name }}</td>
-                <td>{{ item.price }} руб.</td>
+                <td class="item-price">{{ item.price }} руб.</td>
+                    <td>
+                        <button onclick="changeQuantity('{{ p_id }}', -1)">-</button>
+
+                        <span id="qty-{{ p_id }}">{{ item.quantity }}</span>
+
+                        <button onclick="changeQuantity('{{ p_id }}', 1)">+</button>
+                    </td>
+                <td class="item-total">{{ item.price * item.quantity }} руб.</td>
                 <td>
-                    <!-- Кнопки изменения количества (Задание 3.2) -->
-                    <button onclick="updateQuantity('{{ p_id }}', {{ item.quantity - 1 }})">-</button>
-                    <span style="margin: 0 10px;">{{ item.quantity }}</span>
-                    <button onclick="updateQuantity('{{ p_id }}', {{ item.quantity + 1 }})">+</button>
-                </td>
-                <td>{{ item.price * item.quantity }} руб.</td>
-                <td>
-                    <!-- Удаление через JS (Задание 3.2) -->
-                    <button onclick="removeItem('{{ p_id }}')" style="color: red; cursor: pointer;">Удалить</button>
+                    <button onclick="removeItem('{{ p_id }}')" style="color: red;">Удалить</button>
                 </td>
             </tr>
             {% endfor %}
