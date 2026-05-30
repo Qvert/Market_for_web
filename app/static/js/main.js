@@ -4,10 +4,16 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     initNotifications();
 
-    // 2. Первичная загрузка товаров, если мы на главной (где есть контейнер)
+    // 2. Первичная загрузка товаров только на главной странице
+    // На странице catalog товары уже отрендерены сервером
     const productContainer = document.getElementById('product-list');
-    if (productContainer) {
+    if (productContainer && window.location.pathname === '/') {
         loadProducts();
+    }
+
+    // 3. Если мы на странице catalog - привязываем события к существующим кнопкам
+    if (productContainer && window.location.pathname === '/catalog') {
+        bindAddToCartEvents();
     }
 });
 
@@ -26,17 +32,13 @@ async function initNotifications() {
             await manager.init();
             window.notificationManager = manager;
 
-            // --- ВОТ ТУТ ЛОГИКА ОДНОКРАТНОГО ПОКАЗА ---
             if (!sessionStorage.getItem('notified_connected')) {
-                // Вызываем показ тоста вручную через созданный менеджер
                 window.notificationManager._showToast({
                     title: "Уведомления подключены",
                     body: "Вы будете получать сообщения о событиях системы",
                     type: "success",
                     ts: new Date().toISOString()
                 });
-
-                // Ставим метку, что мы уже поприветствовали пользователя
                 sessionStorage.setItem('notified_connected', 'true');
                 console.log('[Notifications] Приветствие показано в первый раз');
             } else {
@@ -53,17 +55,29 @@ async function loadProducts(categoryId = '') {
     const container = document.getElementById('product-list');
     if (!container) return;
 
-    container.innerHTML = '<div class="loader">Загрузка товаров...</div>';
+    container.innerHTML = '<div class="loader" style="text-align: center; padding: 2rem; font-size: 1.2rem;">Загрузка товаров...</div>';
 
     try {
-        const url = categoryId ? `/api/products/?category_id=${categoryId}` : '/api/products/';
+        let url = '/api/products/';
+        if (categoryId) {
+            url = `/api/products/?category_id=${categoryId}`;
+        }
+
+        console.log('Загрузка товаров:', url);
+
         const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const products = await response.json();
+        console.log('Получено товаров:', products.length);
 
         renderProducts(products);
     } catch (err) {
         console.error("Ошибка загрузки:", err);
-        container.innerHTML = '<p>Ошибка загрузки товаров.</p>';
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #dc3545;">Ошибка загрузки товаров. Попробуйте обновить страницу.</p>';
     }
 }
 
@@ -72,38 +86,65 @@ function renderProducts(products) {
     container.innerHTML = '';
 
     if (products.length === 0) {
-        container.innerHTML = '<p>Товары не найдены.</p>';
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">Товары не найдены в данной категории.</p>';
         return;
     }
 
     products.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
+        card.style.cssText = 'border: 1px solid #ccc; padding: 20px; width: 250px; border-radius: 8px; text-align: center;';
         card.innerHTML = `
-            <div class="product-info">
-                <h3>${product.name}</h3>
-                <p>${product.description}</p>
-                <div class="product-footer">
-                    <span class="price">${product.price} руб.</span>
-                    <button class="add-to-cart-btn btn-sm" data-product-id="${product.id}">
-                        В корзину
-                    </button>
-                </div>
-            </div>
+            <h3><a href="/product/${product.id}" style="text-decoration: none; color: #333;">${product.name}</a></h3>
+            <h2 style="color: #d9534f;">${product.price} руб.</h2>
+
+            <button onclick="quickView('${product.id}')" style="margin-bottom: 10px; cursor: pointer; padding: 8px 15px; background: #17a2b8; color: white; border: none; border-radius: 4px; width: 100%;">
+                Быстрый просмотр
+            </button>
+
+            <button class="add-to-cart-btn" data-product-id="${product.id}"
+                    style="padding: 10px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; width: 100%;">
+                Добавить в корзину
+            </button>
         `;
         container.appendChild(card);
     });
 
-    // Важно: Привязываем события сразу после отрисовки
+    // Привязываем события сразу после отрисовки
     bindAddToCartEvents();
+}
+
+// --- БЫСТРЫЙ ПРОСМОТР ---
+async function quickView(productId) {
+    try {
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) {
+            throw new Error('Товар не найден');
+        }
+
+        const product = await response.json();
+
+        // Заполняем модальное окно
+        document.querySelector('.modal-title').textContent = product.name;
+        document.querySelector('.modal-description').textContent = product.description;
+        document.querySelector('.modal-price').textContent = `${product.price} руб.`;
+
+        // Показываем модальное окно и затемнение
+        document.getElementById('quickViewModal').style.display = 'block';
+        document.getElementById('modalOverlay').style.display = 'block';
+
+    } catch (err) {
+        console.error('Ошибка быстрого просмотра:', err);
+        alert('Не удалось загрузить информацию о товаре');
+    }
 }
 
 // Функция поиска и привязки всех кнопок "В корзину" на странице
 function bindAddToCartEvents() {
     const btns = document.querySelectorAll('.add-to-cart-btn');
     btns.forEach(btn => {
-        // Убираем старый обработчик, чтобы не было дублей, и ставим новый
         btn.onclick = async (e) => {
+            e.preventDefault();
             const id = e.target.getAttribute('data-product-id');
             await addToCart(id);
         };
@@ -118,8 +159,22 @@ function setupEventListeners() {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             const id = btn.getAttribute('data-id');
-            catButtons.forEach(b => b.classList.remove('active'));
+
+            // Убираем активный класс у всех кнопок
+            catButtons.forEach(b => {
+                b.style.background = 'white';
+                b.style.color = '#007bff';
+                b.classList.remove('active');
+            });
+
+            // Добавляем активный класс текущей кнопке
+            btn.style.background = '#007bff';
+            btn.style.color = 'white';
             btn.classList.add('active');
+
+            console.log('Выбрана категория:', id || 'Все товары');
+
+            // Загружаем товары по категории
             loadProducts(id);
         });
     });
@@ -127,7 +182,7 @@ function setupEventListeners() {
     // Привязываем кнопки корзины, которые уже могут быть в HTML
     bindAddToCartEvents();
 
-    // Формы (регистрация/вход) - код без изменений
+    // Форма регистрации
     const regForm = document.getElementById('register-form');
     if (regForm) {
         regForm.addEventListener('submit', async (e) => {
@@ -135,27 +190,52 @@ function setupEventListeners() {
             const name = document.getElementById('reg-name').value;
             const email = document.getElementById('reg-email').value;
             const password = document.getElementById('reg-password').value;
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password })
-            });
-            if (response.ok) window.location.href = '/auth/login';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                if (response.ok) {
+                    window.location.href = '/auth/login';
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Ошибка регистрации');
+                }
+            } catch (err) {
+                console.error('Ошибка регистрации:', err);
+                alert('Ошибка подключения к серверу');
+            }
         });
     }
 
+    // Форма входа
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            if (response.ok) window.location.href = '/';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Ошибка входа');
+                }
+            } catch (err) {
+                console.error('Ошибка входа:', err);
+                alert('Ошибка подключения к серверу');
+            }
         });
     }
 }
@@ -169,7 +249,7 @@ async function addToCart(productId) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                product_id: Number(productId), // Явно преобразуем в число
+                product_id: Number(productId),
                 quantity: 1
             })
         });
@@ -183,6 +263,8 @@ async function addToCart(productId) {
                     type: "success",
                     ts: new Date().toISOString()
                 });
+            } else {
+                alert('Товар добавлен в корзину');
             }
         } else {
             const err = await response.json();
@@ -190,6 +272,7 @@ async function addToCart(productId) {
         }
     } catch (err) {
         console.error("Ошибка корзины:", err);
+        alert('Ошибка подключения к серверу');
     }
 }
 
@@ -200,7 +283,9 @@ async function updateCartCounter() {
         const response = await fetch('/api/cart/count');
         const data = await response.json();
         counter.textContent = data.count;
-    } catch (err) { console.log('Корзина пуста'); }
+    } catch (err) {
+        console.log('Корзина пуста');
+    }
 }
 
 // Функции для страницы корзины
@@ -253,10 +338,7 @@ async function placeOrder() {
         });
 
         if (response.ok) {
-            // Мы не делаем alert! Уведомление прилетит само через Push/Socket
             console.log("Заказ оформлен на сервере");
-
-            // Если мы на странице корзины — очищаем таблицу или редиректим
             if (window.location.pathname === '/cart') {
                 setTimeout(() => window.location.href = '/', 2000);
             }

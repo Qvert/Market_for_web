@@ -4,12 +4,19 @@
     <div class="hero">
         <h1>Добро пожаловать в MyStore!</h1>
         <p>Лучшие товары по лучшим ценам.</p>
-        <a href="/products" class="btn">Перейти к покупкам</a>
     </div>
+
     <div class="categories">
-    <h2>Категории</h2>
-        <button class="cat-btn" data-id="1">Электроника</button>
-        <button class="cat-btn" data-id="1">Аксессуары</button>
-        <button class="cat-btn" data-id="1">Одежда</button>
+        <h2>Категории</h2>
+        <button class="cat-btn active" data-id="">Все товары</button>
+        <button class="cat-btn" data-id="1">Ноутбуки</button>
+        <button class="cat-btn" data-id="2">Периферия</button>
+    </div>
+
+    <!-- Контейнер для товаров -->
+    <div class="products-container">
+        <div id="product-list" class="product-grid">
+            <!-- Товары будут загружены через AJAX -->
+        </div>
     </div>
 {% endblock %}
