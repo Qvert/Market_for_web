@@ -244,3 +244,29 @@ function recalculateTotal() {
     const totalEl = document.getElementById('total-price');
     if (totalEl) totalEl.textContent = total + " руб.";
 }
+
+async function placeOrder() {
+    try {
+        const response = await fetch('/api/cart/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            // Мы не делаем alert! Уведомление прилетит само через Push/Socket
+            console.log("Заказ оформлен на сервере");
+
+            // Если мы на странице корзины — очищаем таблицу или редиректим
+            if (window.location.pathname === '/cart') {
+                setTimeout(() => window.location.href = '/', 2000);
+            }
+        }
+    } catch (err) {
+        console.error("Ошибка оформления:", err);
+    }
+}
+
+const checkoutBtn = document.getElementById('checkout-btn');
+if (checkoutBtn) {
+    checkoutBtn.addEventListener('click', placeOrder);
+}

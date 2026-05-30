@@ -1,3 +1,4 @@
+import re
 import uuid
 import urllib.request
 import urllib.error
@@ -69,22 +70,32 @@ class NotificationService:
         return delivered
 
     async def send_to_user(self, user_id: str, notification: NotificationPayload) -> bool:
-        # 1. WebSocket
-        ws_success = False
+        ws_delivered = False
         for socket_id, data in list(self.subscribers.items()):
             if data["user_id"] == user_id:
-                if await self._send_to_socket(socket_id, notification):
-                    ws_success = True
+                # Метод _send_to_socket отправит JSON, который JS превратит в Toast
+                success = await self._send_to_socket(socket_id, notification)
+                if success:
+                    ws_delivered = True
 
-        # 2. ntfy (Персональный канал по email/id)
-        topic = f"ntfy_user_{user_id}"
-        self._send_external_push(topic, notification.title, notification.body, notification.url)
+        # --- КАНАЛ 2: Внешний Push (ntfy.sh) ---
+        # Очищаем email для топика: glscharow@yandex.ru -> glscharow_yandex_ru
+        clean_id = re.sub(r'[^a-zA-Z0-9]', '_', user_id)
+        topic = f"ntfy_user_{clean_id}"
 
-        return ws_success
+        self._send_external_push(
+            topic=topic,
+            title=notification.title,
+            body=notification.body,
+            click_url=notification.url
+        )
+
+        return ws_delivered
 
     async def _send_to_socket(self, socket_id: str, notification: NotificationPayload) -> bool:
         subscriber = self.subscribers.get(socket_id)
-        if not subscriber: return False
+        if not subscriber:
+            return False
         try:
             await subscriber["ws"].send_json({
                 "event": "push_notification",
@@ -93,13 +104,13 @@ class NotificationService:
                     "title": notification.title,
                     "body": notification.body,
                     "type": notification.type,
-                    "icon": notification.icon,
-                    "url": notification.url,
                     "ts": datetime.now().isoformat(),
+                    "url": notification.url
                 }
             })
             return True
-        except:
+        except Exception as e:
+            print(f"[WS] Ошибка отправки: {e}")
             return False
 
     def get_stats(self) -> dict:
