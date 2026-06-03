@@ -1,20 +1,35 @@
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Request, HTTPException, status
 
 from app.data import USERS
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def get_hash_password(password: str) -> str:
+    """
+    Хеширование пароля. 
+    1. Переводим строку в байты.
+    2. Генерируем соль и хешируем.
+    3. Возвращаем как строку для хранения в БД.
+    """
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed_password.decode('utf-8')
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
 
-def get_hash_password(password):
-    return pwd_context.hash(password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Проверка пароля.
+    Сравнивает чистый пароль с хешем.
+    """
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'),
+        hashed_password.encode('utf-8')
+    )
+
 
 def get_current_user(request: Request):
     """
-    Зависимость (Dependency) для проверки авторизации пользователя.
-    Если юзера нет в сессии, выбрасывает ошибку 401.
+    Зависимость для проверки авторизации пользователя.
     """
     user_email = request.session.get("user")
     if not user_email:
@@ -22,4 +37,5 @@ def get_current_user(request: Request):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Требуется аутентификация"
         )
+
     return USERS.get(user_email)
