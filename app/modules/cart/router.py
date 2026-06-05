@@ -55,6 +55,25 @@ class CartService:
     def clear(self, request: Request):
         request.session["cart"] = {}
 
+    async def checkout(self, request: Request):
+        user_email = request.session.get("user")
+        cart = self.get_cart(request)
+
+        if not cart:
+            raise HTTPException(status_code=400, detail="Корзина пуста")
+
+        total_sum = sum(item['price'] * item['quantity'] for item in cart.values())
+        self.clear(request)
+
+        if user_email:
+            await notification_service.send_to_user(user_email, NotificationPayload(
+                title="📦 Заказ оформлен!",
+                body=f"Ваш заказ на сумму {total_sum} руб. принят в обработку.",
+                type=NotificationType.ORDER,
+                url="/"
+            ))
+        return {"status": "ok", "message": "Заказ создан"}
+
 cart_logic_service = CartService()
 
 @router.get("")
@@ -87,3 +106,7 @@ async def get_cart_count(request: Request):
 async def clear_cart(request: Request, current_user=Depends(get_current_user)):
     cart_logic_service.clear(request)
     return {"message": "Корзина очищена"}
+
+@router.post("/checkout")
+async def checkout(request: Request):
+    return await cart_logic_service.checkout(request)

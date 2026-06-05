@@ -4,32 +4,37 @@
     {% if not cart_items %}
         <p>Ваша корзина пуста 😢</p>
     {% else %}
-        <table border="1" cellpadding="10" cellspacing="0" style="width: 100%; text-align: left;">
-            <tr>
-                <th>Название</th>
-                <th>Цена</th>
-                <th>Кол-во</th>
-                <th>Сумма</th>
-                <th>Действие</th>
-            </tr>
-            {% for p_id, item in cart_items.items() %}
-            <tr id="row-{{ p_id }}">
-                <td>{{ item.name }}</td>
-                <td class="item-price">{{ item.price }} руб.</td>
+        <div id="cart-container">
+            <table border="1" cellpadding="10" cellspacing="0" style="width: 100%; text-align: left;">
+                <tr>
+                    <th>Название</th>
+                    <th>Цена</th>
+                    <th>Кол-во</th>
+                    <th>Сумма</th>
+                    <th>Действие</th>
+                </tr>
+                {% for p_id, item in cart_items.items() %}
+                <tr id="row-{{ p_id }}">
+                    <td>{{ item.name }}</td>
+                    <td class="item-price">{{ item.price }} руб.</td>
                     <td>
                         <button onclick="changeQuantity('{{ p_id }}', -1)">-</button>
-
                         <span id="qty-{{ p_id }}">{{ item.quantity }}</span>
-
                         <button onclick="changeQuantity('{{ p_id }}', 1)">+</button>
                     </td>
-                <td class="item-total">{{ item.price * item.quantity }} руб.</td>
-                <td>
-                    <button onclick="removeItem('{{ p_id }}')" style="color: red;">Удалить</button>
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-        <h2>Итого: <span id="total-price">{{ total_sum }}</span> руб.</h2>
+                    <td class="item-total-val">{{ item.price * item.quantity }}</td>
+                    <td class="item-total-display">{{ item.price * item.quantity }} руб.</td>
+                    <td>
+                        <button onclick="removeItem('{{ p_id }}')" style="color: red;">Удалить</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            <h2>Итого: <span id="total-price">{{ total_sum }}</span> руб.</h2>
+            <button id="checkout-btn" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Оформить заказ</button>
+        </div>
     {% endif %}
+    <div id="empty-cart-msg" style="display: {% if cart_items %}none{% else %}block{% endif %};">
+        <p>Ваша корзина пуста 😢</p>
+    </div>
 {% endblock %}

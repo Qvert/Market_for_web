@@ -303,7 +303,8 @@ async function removeItem(productId) {
 async function changeQuantity(productId, delta) {
     const qtyElement = document.getElementById(`qty-${productId}`);
     if (!qtyElement) return;
-    let newQty = parseInt(qtyElement.textContent) + delta;
+    let currentQty = parseInt(qtyElement.textContent);
+    let newQty = currentQty + delta;
     if (newQty < 1) return;
 
     const response = await fetch(`/api/cart/items/${productId}`, {
@@ -314,20 +315,34 @@ async function changeQuantity(productId, delta) {
 
     if (response.ok) {
         qtyElement.textContent = newQty;
-        const row = qtyElement.closest('tr');
+        const row = document.getElementById(`row-${productId}`);
         const price = parseFloat(row.querySelector('.item-price').textContent);
-        row.querySelector('.item-total').textContent = (price * newQty);
+        const totalVal = price * newQty;
+        
+        const totalValEl = row.querySelector('.item-total-val');
+        const totalDisplayEl = row.querySelector('.item-total-display');
+        
+        if (totalValEl) totalValEl.textContent = totalVal;
+        if (totalDisplayEl) totalDisplayEl.textContent = totalVal + " руб.";
+        
         recalculateTotal();
     }
 }
 
 function recalculateTotal() {
     let total = 0;
-    document.querySelectorAll('.item-total').forEach(el => {
+    document.querySelectorAll('.item-total-val').forEach(el => {
         total += parseFloat(el.textContent);
     });
     const totalEl = document.getElementById('total-price');
-    if (totalEl) totalEl.textContent = total + " руб.";
+    if (totalEl) totalEl.textContent = total;
+
+    if (total === 0) {
+        const container = document.getElementById('cart-container');
+        const emptyMsg = document.getElementById('empty-cart-msg');
+        if (container) container.style.display = 'none';
+        if (emptyMsg) emptyMsg.style.display = 'block';
+    }
 }
 
 async function placeOrder() {
