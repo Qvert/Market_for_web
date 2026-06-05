@@ -1,4 +1,5 @@
 .idea/
 .venv/
+app/__pycache__/
 __pycache__/
 firebase-credentials.json

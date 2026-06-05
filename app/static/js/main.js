@@ -58,9 +58,9 @@ async function loadProducts(categoryId = '') {
     container.innerHTML = '<div class="loader" style="text-align: center; padding: 2rem; font-size: 1.2rem;">Загрузка товаров...</div>';
 
     try {
-        let url = '/api/products/';
+        let url = '/api/catalog/products';
         if (categoryId) {
-            url = `/api/products/?category_id=${categoryId}`;
+            url = `/api/catalog/products?category_id=${categoryId}`;
         }
 
         console.log('Загрузка товаров:', url);
@@ -117,7 +117,7 @@ function renderProducts(products) {
 // --- БЫСТРЫЙ ПРОСМОТР ---
 async function quickView(productId) {
     try {
-        const response = await fetch(`/api/products/${productId}`);
+        const response = await fetch(`/api/catalog/product/${productId}`);
         if (!response.ok) {
             throw new Error('Товар не найден');
         }

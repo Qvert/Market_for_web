@@ -9,9 +9,11 @@ from app.routers.views import pages
 from app.routers.ws_notifications import router as notifications_router
 from app.routers.ws_chat import router as ws_chat_router
 from app.services.chat_service import chat_service
-from app.routers.api_auth import router as auth_router
-from app.routers.api_catalog import router as catalog_router
-from app.routers.api_cart import router as cart_router
+from app.modules.catalog.service import catalog_service
+from app.modules.auth.router import router as auth_router
+from app.modules.catalog.router import router as catalog_router
+from app.modules.cart.router import router as cart_router
+from app.config import settings
 
 
 @asynccontextmanager
@@ -35,19 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-app.add_middleware(SessionMiddleware, secret_key="super-secret-key")
 
 app.include_router(pages.router)
-
 app.include_router(auth_router)
 app.include_router(cart_router)
 app.include_router(catalog_router)
-
 app.include_router(ws_chat_router)
-
 app.include_router(notifications_router)
 
-
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=settings.RELOAD)

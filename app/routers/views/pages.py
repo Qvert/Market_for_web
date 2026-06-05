@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
 from app.config import templates
-from app.data import PRODUCTS
+from app.modules.catalog.service import catalog_service
 
 router = APIRouter(tags=["Views"])
 
@@ -12,7 +12,7 @@ async def index(request: Request):
 
 @router.get("/products")
 async def catalog(request: Request):
-    products = PRODUCTS
+    products = catalog_service.get_products()
     return templates.TemplateResponse("products.html", {
         "request": request,
         "title": "Каталог",
@@ -22,14 +22,14 @@ async def catalog(request: Request):
 
 @router.get("/product/{product_id}")
 async def get_product_detail_page(request: Request, product_id: int):
-    product = next((p for p in PRODUCTS if p["id"] == product_id), None)
+    product = catalog_service.get_product(product_id)
     if not product:
         return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
 
     return templates.TemplateResponse("product_detail.html", {
         "request": request,
         "product": product,
-        "title": product["name"]
+        "title": product.name
     })
 
 @router.get("/cart")
